@@ -1,0 +1,1083 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#0b0f1a">
+  <meta name="description" content="IPTV M3U Toolkit – playlist creator, HLS player with real fullscreen, Xtream converter, MAC portal tools.">
+  <title>IPTV M3U Toolkit</title>
+  <!-- Plyr player UI (reliable fullscreen) -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/plyr@3.7.8/dist/plyr.css">
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js" onerror="window.__hlsFailed=true"></script>
+  <script src="https://cdn.jsdelivr.net/npm/plyr@3.7.8/dist/plyr.min.js" onerror="window.__plyrFailed=true"></script>
+  <style>
+    :root {
+      --bg: #0b0f1a;
+      --surface: #12182a;
+      --surface2: #1a2238;
+      --border: #2a3550;
+      --text: #f0f4ff;
+      --muted: #8b9bb8;
+      --accent: #2dd4bf;
+      --accent2: #a78bfa;
+      --danger: #fb7185;
+      --ok: #34d399;
+      --warn: #fbbf24;
+      --radius: 16px;
+      --shadow: 0 8px 32px rgba(0,0,0,0.4);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg); color: var(--text);
+      min-height: 100vh; line-height: 1.45; overflow-x: hidden;
+    }
+
+    /* Top bar */
+    .topbar {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 16px;
+      background: linear-gradient(120deg, #0f766e, #0b0f1a 40%, #5b21b6);
+      position: sticky; top: 0; z-index: 100;
+      box-shadow: 0 2px 20px rgba(0,0,0,0.35);
+    }
+    .topbar h1 { font-size: 1.05rem; font-weight: 700; letter-spacing: -0.02em; }
+    .badge {
+      font-size: 0.62rem; background: var(--accent); color: #0b0f1a;
+      padding: 3px 8px; border-radius: 99px; font-weight: 800; margin-left: 8px;
+    }
+    .status-dot { font-size: 0.72rem; color: var(--muted); }
+
+    .container { max-width: 640px; margin: 0 auto; padding: 14px; padding-bottom: 90px; }
+
+    /* Bottom nav – app style */
+    .bottom-nav {
+      position: fixed; bottom: 0; left: 0; right: 0; z-index: 90;
+      background: rgba(18,24,42,0.95); backdrop-filter: blur(12px);
+      border-top: 1px solid var(--border);
+      display: flex; justify-content: space-around; padding: 8px 4px calc(8px + env(safe-area-inset-bottom));
+    }
+    .nav-btn {
+      flex: 1; background: none; border: none; color: var(--muted);
+      font-size: 0.68rem; font-weight: 600; padding: 6px 2px;
+      display: flex; flex-direction: column; align-items: center; gap: 3px;
+      cursor: pointer; border-radius: 12px; transition: 0.15s;
+    }
+    .nav-btn span { font-size: 1.25rem; }
+    .nav-btn.active { color: var(--accent); }
+    .nav-btn:active { background: var(--surface2); }
+
+    /* Panels */
+    .panel { display: none; animation: up 0.2s ease; }
+    .panel.active { display: block; }
+    @keyframes up {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: none; }
+    }
+
+    .back {
+      background: none; border: none; color: var(--accent);
+      font-size: 0.9rem; font-weight: 600; cursor: pointer;
+      margin-bottom: 12px; padding: 4px 0;
+    }
+
+    /* Cards & menu */
+    .card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 16px; margin-bottom: 12px;
+      box-shadow: var(--shadow);
+    }
+    .card-head {
+      display: flex; align-items: center; gap: 10px;
+      font-weight: 700; font-size: 1rem; margin-bottom: 14px;
+    }
+    .card-head .ic {
+      width: 36px; height: 36px; border-radius: 11px;
+      display: flex; align-items: center; justify-content: center; font-size: 1.1rem;
+    }
+
+    .menu { display: flex; flex-direction: column; gap: 10px; }
+    .menu-btn {
+      display: flex; align-items: center; gap: 14px; width: 100%;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 18px; padding: 15px 16px; text-align: left;
+      color: inherit; cursor: pointer; transition: 0.15s;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+    }
+    .menu-btn:active { transform: scale(0.98); background: var(--surface2); }
+    .menu-btn .ic {
+      width: 48px; height: 48px; border-radius: 14px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.4rem; flex-shrink: 0;
+    }
+    .menu-btn h3 { font-size: 0.98rem; font-weight: 650; }
+    .menu-btn p { font-size: 0.76rem; color: var(--muted); margin-top: 2px; }
+    .menu-btn .arrow { margin-left: auto; color: var(--muted); font-size: 1.2rem; }
+
+    /* Forms */
+    label {
+      display: block; font-size: 0.7rem; color: var(--muted);
+      text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 5px; font-weight: 600;
+    }
+    .fg { margin-bottom: 12px; }
+    input, select, textarea {
+      width: 100%; padding: 12px 14px;
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: 12px; color: var(--text); font-size: 0.95rem; outline: none;
+    }
+    input:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(45,212,191,0.2); }
+    textarea { min-height: 110px; font-family: ui-monospace, monospace; font-size: 0.82rem; resize: vertical; }
+
+    .row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+    .btn {
+      padding: 12px 16px; border: none; border-radius: 12px;
+      font-size: 0.88rem; font-weight: 650; cursor: pointer;
+      display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+      min-height: 46px; transition: 0.15s;
+    }
+    .btn:active { transform: scale(0.97); }
+    .btn-accent { background: var(--accent); color: #0b0f1a; }
+    .btn-violet { background: var(--accent2); color: #0b0f1a; }
+    .btn-danger { background: var(--danger); color: #fff; }
+    .btn-ghost { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+    .btn-block { width: 100%; }
+    .btn-sm { min-height: 40px; padding: 9px 12px; font-size: 0.82rem; }
+
+    /* Channel list */
+    .search { position: relative; margin-bottom: 10px; }
+    .search input { padding-left: 40px; }
+    .search::before {
+      content: '🔍'; position: absolute; left: 14px; top: 50%;
+      transform: translateY(-50%); pointer-events: none;
+    }
+    .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+    .chip {
+      padding: 6px 12px; border-radius: 99px; font-size: 0.75rem; font-weight: 600;
+      background: var(--bg); border: 1px solid var(--border); color: var(--muted); cursor: pointer;
+    }
+    .chip.on { background: var(--accent); border-color: var(--accent); color: #0b0f1a; }
+
+    .stats { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+    .stat {
+      background: var(--bg); border: 1px solid var(--border);
+      padding: 6px 12px; border-radius: 10px; font-size: 0.8rem;
+    }
+    .stat b { color: var(--accent); }
+
+    .clist { max-height: 360px; overflow-y: auto; }
+    .citem {
+      display: flex; align-items: center; gap: 10px;
+      padding: 11px; background: var(--bg); border-radius: 12px;
+      margin-bottom: 6px; border: 1px solid transparent; cursor: pointer;
+    }
+    .citem:active, .citem.playing { border-color: var(--accent); background: rgba(45,212,191,0.1); }
+    .clogo {
+      width: 40px; height: 40px; border-radius: 10px; object-fit: contain;
+      background: #1a2238; flex-shrink: 0;
+    }
+    .cinfo { flex: 1; min-width: 0; }
+    .cname { font-weight: 650; font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .cmeta { font-size: 0.72rem; color: var(--muted); margin-top: 2px; }
+    .cacts { display: flex; gap: 4px; }
+    .ibtn {
+      width: 36px; height: 36px; border-radius: 10px; border: 1px solid var(--border);
+      background: var(--surface); color: var(--muted); font-size: 0.95rem;
+      display: flex; align-items: center; justify-content: center; cursor: pointer;
+    }
+    .ibtn.play { color: var(--ok); border-color: rgba(52,211,153,0.4); }
+    .ibtn.fav { color: var(--warn); }
+    .ibtn.fav.on { background: rgba(251,191,36,0.15); }
+    .ibtn.del:active { color: var(--danger); }
+
+    .empty { text-align: center; padding: 28px; color: var(--muted); font-size: 0.88rem; }
+    .hint { font-size: 0.74rem; color: var(--muted); margin-top: 8px; line-height: 1.4; }
+    .result {
+      margin-top: 12px; padding: 12px; background: var(--bg);
+      border: 1px solid var(--border); border-radius: 12px;
+      font-family: ui-monospace, monospace; font-size: 0.78rem;
+      white-space: pre-wrap; word-break: break-all; max-height: 240px; overflow-y: auto;
+    }
+
+    /* Player – Plyr overrides */
+    .player-box {
+      background: #000; border-radius: 14px; overflow: hidden;
+      margin-bottom: 12px; border: 1px solid var(--border);
+      aspect-ratio: 16/9; position: relative;
+    }
+    .player-box video { width: 100%; height: 100%; display: block; }
+    .plyr { height: 100%; }
+    .plyr--video { background: #000; }
+    .plyr__control--overlaid { background: var(--accent) !important; color: #0b0f1a !important; }
+    .plyr--full-ui input[type=range] { color: var(--accent) !important; }
+    .plyr__control:hover { background: var(--accent) !important; color: #0b0f1a !important; }
+    .plyr--fullscreen-enabled .plyr__control[data-plyr="fullscreen"] { display: inline-block !important; }
+
+    /* CSS fullscreen fallback (when browser API is blocked) */
+    .player-box.fs-css {
+      position: fixed !important; inset: 0 !important; z-index: 9999 !important;
+      width: 100vw !important; height: 100vh !important; max-height: 100vh !important;
+      border-radius: 0 !important; border: none !important; aspect-ratio: auto !important;
+      margin: 0 !important; background: #000 !important;
+    }
+    .player-box.fs-css .plyr,
+    .player-box.fs-css video { width: 100% !important; height: 100% !important; }
+    body.fs-body { overflow: hidden; }
+
+    .now-playing {
+      font-weight: 700; font-size: 0.95rem; margin-bottom: 8px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .player-actions {
+      display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 8px;
+    }
+    .player-actions .btn { width: 100%; font-size: 0.8rem; padding: 11px 6px; }
+    .pstatus { font-size: 0.78rem; color: var(--muted); }
+
+    .sample-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .sample {
+      background: var(--bg); border: 1px solid var(--border); border-radius: 12px;
+      padding: 14px 10px; text-align: center; cursor: pointer; font-size: 0.84rem; font-weight: 600;
+    }
+    .sample:active { border-color: var(--accent); }
+    .sample span { display: block; font-size: 1.4rem; margin-bottom: 4px; }
+
+    .toast {
+      position: fixed; bottom: 88px; left: 50%; transform: translateX(-50%) translateY(20px);
+      background: #1e293b; border: 1px solid var(--border); color: var(--text);
+      padding: 12px 18px; border-radius: 14px; font-size: 0.88rem; font-weight: 600;
+      z-index: 200; opacity: 0; transition: 0.25s; pointer-events: none;
+      box-shadow: var(--shadow); max-width: 90%;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    .footer { text-align: center; padding: 20px 12px; color: var(--muted); font-size: 0.72rem; }
+
+    @media (min-width: 600px) {
+      .sample-grid { grid-template-columns: 1fr 1fr 1fr; }
+      .player-actions { grid-template-columns: repeat(5, 1fr); }
+    }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <h1>IPTV Toolkit <span class="badge">FREE</span></h1>
+    <div class="status-dot" id="stor">● Ready</div>
+  </div>
+
+  <div class="container">
+
+    <!-- HOME -->
+    <div class="panel active" id="panel-home">
+      <div class="menu" style="margin-top:6px;">
+        <button class="menu-btn" onclick="go('player')">
+          <div class="ic" style="background:linear-gradient(135deg,#2dd4bf,#22d3ee);">▶️</div>
+          <div><h3>Live Player</h3><p>Fullscreen HLS player • Next / Prev</p></div>
+          <span class="arrow">›</span>
+        </button>
+        <button class="menu-btn" onclick="go('creator')">
+          <div class="ic" style="background:linear-gradient(135deg,#a78bfa,#818cf8);">✏️</div>
+          <div><h3>M3U Creator</h3><p>Build & download playlists</p></div>
+          <span class="arrow">›</span>
+        </button>
+        <button class="menu-btn" onclick="go('parser')">
+          <div class="ic" style="background:linear-gradient(135deg,#fb923c,#fb7185);">📄</div>
+          <div><h3>Parser & Extractor</h3><p>Paste or load any M3U</p></div>
+          <span class="arrow">›</span>
+        </button>
+        <button class="menu-btn" onclick="go('samples')">
+          <div class="ic" style="background:linear-gradient(135deg,#34d399,#2dd4bf);">🌐</div>
+          <div><h3>Free Playlists</h3><p>News, sports, countries…</p></div>
+          <span class="arrow">›</span>
+        </button>
+        <button class="menu-btn" onclick="go('xtream')">
+          <div class="ic" style="background:linear-gradient(135deg,#c084fc,#818cf8);">🔄</div>
+          <div><h3>Xtream ↔ M3U</h3><p>Generate & extract codes</p></div>
+          <span class="arrow">›</span>
+        </button>
+        <button class="menu-btn" onclick="go('mac')">
+          <div class="ic" style="background:linear-gradient(135deg,#fbbf24,#fb923c);">🔑</div>
+          <div><h3>MAC Portal Tools</h3><p>Build portal URLs & check format</p></div>
+          <span class="arrow">›</span>
+        </button>
+        <button class="menu-btn" onclick="go('checker')">
+          <div class="ic" style="background:linear-gradient(135deg,#34d399,#22d3ee);">✅</div>
+          <div><h3>Link Checker</h3><p>Single & multi stream test</p></div>
+          <span class="arrow">›</span>
+        </button>
+        <button class="menu-btn" onclick="go('tools')">
+          <div class="ic" style="background:linear-gradient(135deg,#fb923c,#a78bfa);">🛠️</div>
+          <div><h3>Extra Tools</h3><p>Clean, favorites, export</p></div>
+          <span class="arrow">›</span>
+        </button>
+      </div>
+      <div class="footer">Client-side only • Plyr + HLS.js player<br>Use only streams you have rights to</div>
+    </div>
+
+    <!-- PLAYER -->
+    <div class="panel" id="panel-player">
+      <button class="back" onclick="go('home')">← Back</button>
+      <div class="card">
+        <div class="player-box" id="player-box">
+          <video id="player" playsinline crossorigin="anonymous"></video>
+        </div>
+        <div class="now-playing" id="now">No channel selected</div>
+        <div class="player-actions">
+          <button class="btn btn-ghost" onclick="prevChannel()">⏮ Prev</button>
+          <button class="btn btn-accent" onclick="togglePlay()">⏯ Play</button>
+          <button class="btn btn-ghost" onclick="nextChannel()">Next ⏭</button>
+          <button class="btn btn-violet" onclick="goFullscreen()">⛶ Full</button>
+          <button class="btn btn-ghost" onclick="copyCurrentUrl()">📋 URL</button>
+          <button class="btn btn-ghost" onclick="toggleFavCurrent()">⭐ Fav</button>
+        </div>
+        <div class="pstatus" id="pstatus">Ready — tap ⛶ in the player bar or Full button</div>
+      </div>
+      <div class="card">
+        <div class="card-head">
+          <div class="ic" style="background:linear-gradient(135deg,#2dd4bf,#22d3ee);">📺</div>
+          Channels
+        </div>
+        <div class="search"><input id="psearch" placeholder="Search…" oninput="renderPlayerList()"></div>
+        <div class="chips" id="pchips"></div>
+        <div class="stats"><div class="stat">Total: <b id="pcount">0</b></div></div>
+        <div class="clist" id="plist"><div class="empty">Load a playlist or create channels first.</div></div>
+      </div>
+    </div>
+
+    <!-- CREATOR -->
+    <div class="panel" id="panel-creator">
+      <button class="back" onclick="go('home')">← Back</button>
+      <div class="card">
+        <div class="card-head"><div class="ic" style="background:linear-gradient(135deg,#a78bfa,#818cf8);">✏️</div> Add Channel</div>
+        <div class="fg"><label>Name *</label><input id="ch-name" placeholder="Channel name"></div>
+        <div class="fg"><label>Stream URL *</label><input id="ch-url" placeholder="https://…m3u8"></div>
+        <div class="fg"><label>Logo</label><input id="ch-logo" placeholder="https://…png"></div>
+        <div class="fg"><label>Group</label><input id="ch-group" value="General" list="glist"><datalist id="glist"></datalist></div>
+        <div class="fg"><label>tvg-id</label><input id="ch-tvgid" placeholder="optional"></div>
+        <div class="row">
+          <button class="btn btn-accent" onclick="addChannel()">+ Add</button>
+          <button class="btn btn-ghost" onclick="clearForm()">Clear</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-head"><div class="ic" style="background:linear-gradient(135deg,#2dd4bf,#a78bfa);">📋</div> Playlist</div>
+        <div class="search"><input id="csearch" placeholder="Search…" oninput="renderCreatorList()"></div>
+        <div class="chips" id="cchips"></div>
+        <div class="stats">
+          <div class="stat">Channels: <b id="ccount">0</b></div>
+          <div class="stat">Groups: <b id="gcount">0</b></div>
+        </div>
+        <div class="clist" id="clist"><div class="empty">No channels yet.</div></div>
+        <div class="row" style="margin-top:12px;">
+          <button class="btn btn-accent" onclick="downloadM3U()">⬇ .m3u</button>
+          <button class="btn btn-ghost" onclick="copyM3U()">📋 Copy</button>
+          <button class="btn btn-ghost btn-sm" onclick="saveStore()">💾</button>
+          <button class="btn btn-danger btn-sm" onclick="clearAll()">Clear</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- PARSER -->
+    <div class="panel" id="panel-parser">
+      <button class="back" onclick="go('home')">← Back</button>
+      <div class="card">
+        <div class="card-head"><div class="ic" style="background:linear-gradient(135deg,#fb923c,#fb7185);">📄</div> Paste / Load M3U</div>
+        <div class="fg">
+          <label>From URL</label>
+          <div style="display:flex;gap:8px;">
+            <input id="load-url" placeholder="https://…m3u" style="flex:1;">
+            <button class="btn btn-accent btn-sm" onclick="loadURL()">Load</button>
+          </div>
+        </div>
+        <div class="fg"><label>Or paste content</label><textarea id="parse-in" placeholder="#EXTM3U…"></textarea></div>
+        <div class="row">
+          <button class="btn btn-accent" onclick="parseM3U()">Parse</button>
+          <button class="btn btn-violet" onclick="importParsed()">Import → Creator</button>
+        </div>
+      </div>
+      <div class="card" id="parse-card" style="display:none;">
+        <div class="card-head"><div class="ic" style="background:linear-gradient(135deg,#34d399,#2dd4bf);">✅</div> Found <span id="pfound">0</span></div>
+        <div class="clist" id="parsed-list"></div>
+      </div>
+    </div>
+
+    <!-- SAMPLES -->
+    <div class="panel" id="panel-samples">
+      <button class="back" onclick="go('home')">← Back</button>
+      <div class="card">
+        <div class="card-head"><div class="ic" style="background:linear-gradient(135deg,#34d399,#2dd4bf);">🌐</div> Free Public Lists</div>
+        <p class="hint" style="margin-bottom:12px;">Open free channels (iptv-org). May go offline anytime.</p>
+        <div class="sample-grid">
+          <button class="sample" onclick="loadSample('https://iptv-org.github.io/iptv/categories/news.m3u')"><span>📰</span>News</button>
+          <button class="sample" onclick="loadSample('https://iptv-org.github.io/iptv/categories/sports.m3u')"><span>⚽</span>Sports</button>
+          <button class="sample" onclick="loadSample('https://iptv-org.github.io/iptv/categories/movies.m3u')"><span>🎬</span>Movies</button>
+          <button class="sample" onclick="loadSample('https://iptv-org.github.io/iptv/categories/music.m3u')"><span>🎵</span>Music</button>
+          <button class="sample" onclick="loadSample('https://iptv-org.github.io/iptv/countries/us.m3u')"><span>🇺🇸</span>USA</button>
+          <button class="sample" onclick="loadSample('https://iptv-org.github.io/iptv/countries/uk.m3u')"><span>🇬🇧</span>UK</button>
+          <button class="sample" onclick="loadSample('https://iptv-org.github.io/iptv/countries/ca.m3u')"><span>🇨🇦</span>Canada</button>
+          <button class="sample" onclick="loadSample('https://iptv-org.github.io/iptv/index.category.m3u')"><span>🌍</span>All</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- XTREAM -->
+    <div class="panel" id="panel-xtream">
+      <button class="back" onclick="go('home')">← Back</button>
+      <div class="card">
+        <div class="card-head"><div class="ic" style="background:linear-gradient(135deg,#c084fc,#818cf8);">🔄</div> Xtream → M3U</div>
+        <div class="fg"><label>Host</label><input id="xt-host" placeholder="http://server:port"></div>
+        <div class="fg"><label>Username</label><input id="xt-user"></div>
+        <div class="fg"><label>Password</label><input id="xt-pass"></div>
+        <div class="row">
+          <button class="btn btn-accent" onclick="genXtream()">Generate</button>
+          <button class="btn btn-ghost" onclick="copyBox('xt-out')">Copy</button>
+        </div>
+        <div class="result" id="xt-out" style="display:none;"></div>
+      </div>
+      <div class="card">
+        <div class="card-head"><div class="ic" style="background:linear-gradient(135deg,#818cf8,#c084fc);">🔗</div> M3U URL → Credentials</div>
+        <div class="fg"><label>get.php URL</label><input id="m3u-xt" placeholder="http://…get.php?username=…"></div>
+        <button class="btn btn-accent" onclick="extractXt()">Extract</button>
+        <div class="result" id="m3u-xt-out" style="display:none;"></div>
+      </div>
+    </div>
+
+    <!-- MAC PORTAL -->
+    <div class="panel" id="panel-mac">
+      <button class="back" onclick="go('home')">← Back</button>
+      <div class="card">
+        <div class="card-head"><div class="ic" style="background:linear-gradient(135deg,#fbbf24,#fb923c);">🔑</div> MAC Portal Builder</div>
+        <p class="hint" style="margin-bottom:12px;">Build common MAG / Stalker portal URLs. Does not scan remote servers (browser limitation).</p>
+        <div class="fg"><label>Portal domain / IP</label><input id="mac-host" placeholder="portal.example.com or http://ip"></div>
+        <div class="fg"><label>MAC address</label><input id="mac-addr" placeholder="00:1A:79:XX:XX:XX"></div>
+        <div class="fg">
+          <label>Path style</label>
+          <select id="mac-path">
+            <option value="/c/">/c/ (classic MAG)</option>
+            <option value="/stalker_portal/c/">/stalker_portal/c/</option>
+            <option value="/portal.php">/portal.php</option>
+            <option value="/server/load.php">/server/load.php</option>
+          </select>
+        </div>
+        <div class="row">
+          <button class="btn btn-accent" onclick="buildMac()">Build URLs</button>
+          <button class="btn btn-ghost" onclick="copyBox('mac-out')">Copy</button>
+        </div>
+        <div class="result" id="mac-out" style="display:none;"></div>
+      </div>
+      <div class="card">
+        <div class="card-head"><div class="ic" style="background:linear-gradient(135deg,#fb923c,#fbbf24);">📋</div> Validate MAC Format</div>
+        <div class="fg"><label>MAC</label><input id="mac-check" placeholder="00:1A:79:12:34:56"></div>
+        <button class="btn btn-accent" onclick="checkMac()">Check</button>
+        <div id="mac-check-out" style="margin-top:10px;"></div>
+      </div>
+    </div>
+
+    <!-- CHECKER -->
+    <div class="panel" id="panel-checker">
+      <button class="back" onclick="go('home')">← Back</button>
+      <div class="card">
+        <div class="card-head"><div class="ic" style="background:linear-gradient(135deg,#34d399,#22d3ee);">✅</div> Single Link</div>
+        <div class="fg"><label>URL</label><input id="chk-url" placeholder="https://…m3u8"></div>
+        <button class="btn btn-accent" onclick="checkOne()">Check</button>
+        <div id="chk-out" style="margin-top:10px;"></div>
+        <p class="hint">CORS often blocks browser checks. Use the player or VLC to confirm.</p>
+      </div>
+      <div class="card">
+        <div class="card-head"><div class="ic" style="background:linear-gradient(135deg,#fb923c,#fb7185);">📡</div> Multi Links</div>
+        <div class="fg"><label>One URL per line</label><textarea id="chk-multi"></textarea></div>
+        <button class="btn btn-accent" onclick="checkMulti()">Check All</button>
+        <div id="chk-multi-out" style="margin-top:10px;"></div>
+      </div>
+    </div>
+
+    <!-- TOOLS -->
+    <div class="panel" id="panel-tools">
+      <button class="back" onclick="go('home')">← Back</button>
+      <div class="card">
+        <div class="card-head"><div class="ic" style="background:linear-gradient(135deg,#fbbf24,#fb923c);">⭐</div> Favorites</div>
+        <p class="hint" style="margin-bottom:10px;">Star channels in the player or list. Favorites are saved.</p>
+        <div class="clist" id="fav-list"><div class="empty">No favorites yet.</div></div>
+        <button class="btn btn-accent btn-block" style="margin-top:10px;" onclick="playFavorites()">Play favorites in Player</button>
+      </div>
+      <div class="card">
+        <div class="card-head"><div class="ic" style="background:linear-gradient(135deg,#fb923c,#a78bfa);">🧹</div> Clean Playlist</div>
+        <button class="btn btn-accent" onclick="cleanList()">Remove duplicates & empty</button>
+      </div>
+      <div class="card">
+        <div class="card-head"><div class="ic" style="background:linear-gradient(135deg,#a78bfa,#2dd4bf);">📂</div> Bulk Group</div>
+        <div class="fg"><label>New group for ALL</label><input id="bulk-g" placeholder="My List"></div>
+        <button class="btn btn-violet" onclick="bulkGroup()">Apply</button>
+      </div>
+      <div class="card">
+        <div class="card-head"><div class="ic" style="background:linear-gradient(135deg,#22d3ee,#818cf8);">📤</div> Export</div>
+        <div class="row">
+          <button class="btn btn-accent" onclick="downloadM3U()">.m3u</button>
+          <button class="btn btn-ghost" onclick="downloadAs('json')">.json</button>
+          <button class="btn btn-ghost" onclick="copyM3U()">Copy</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-head"><div class="ic" style="background:linear-gradient(135deg,#fb7185,#fb923c);">💾</div> Storage</div>
+        <div class="row">
+          <button class="btn btn-ghost" onclick="saveStore()">Save</button>
+          <button class="btn btn-ghost" onclick="loadStore()">Load</button>
+          <button class="btn btn-danger btn-sm" onclick="wipeStore()">Wipe</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom nav -->
+  <nav class="bottom-nav">
+    <button class="nav-btn active" data-go="home" onclick="go('home')"><span>🏠</span>Home</button>
+    <button class="nav-btn" data-go="player" onclick="go('player')"><span>▶️</span>Player</button>
+    <button class="nav-btn" data-go="creator" onclick="go('creator')"><span>✏️</span>Create</button>
+    <button class="nav-btn" data-go="samples" onclick="go('samples')"><span>🌐</span>Free</button>
+    <button class="nav-btn" data-go="tools" onclick="go('tools')"><span>⭐</span>More</button>
+  </nav>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    let channels = [];
+    let favorites = new Set();
+    let parsed = [];
+    let currentId = null;
+    let currentIndex = -1;
+    let hls = null;
+    let plyr = null;
+    let filterG = 'All';
+    let filterPG = 'All';
+
+    const FALLBACK_LOGO = "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'><rect fill='%231a2238' width='40' height='40' rx='10'/><text x='20' y='26' text-anchor='middle' fill='%23666' font-size='13'>TV</text></svg>";
+
+    // ---- Navigation ----
+    function go(name) {
+      document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+      document.getElementById('panel-' + name).classList.add('active');
+      document.querySelectorAll('.nav-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.go === name ||
+          (name === 'xtream' || name === 'mac' || name === 'checker' || name === 'parser') && b.dataset.go === 'tools' ||
+          name === 'home' && b.dataset.go === 'home');
+      });
+      // highlight correct bottom tabs
+      document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+      const map = { home: 'home', player: 'player', creator: 'creator', samples: 'samples', tools: 'tools', parser: 'tools', xtream: 'tools', mac: 'tools', checker: 'tools' };
+      const tab = map[name] || 'home';
+      document.querySelector('.nav-btn[data-go="' + tab + '"]')?.classList.add('active');
+      window.scrollTo(0, 0);
+      if (name === 'player') { ensurePlayer(); renderPlayerList(); }
+      if (name === 'creator') renderCreatorList();
+      if (name === 'tools') renderFavs();
+    }
+
+    function toast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 2200);
+    }
+
+    // ---- Storage ----
+    function saveStore() {
+      try {
+        localStorage.setItem('iptv_ch', JSON.stringify(channels));
+        localStorage.setItem('iptv_fav', JSON.stringify([...favorites]));
+        document.getElementById('stor').textContent = '● Saved';
+        toast('Saved');
+      } catch (e) { toast('Storage error'); }
+    }
+    function loadStore() {
+      try {
+        const d = localStorage.getItem('iptv_ch');
+        if (d) channels = JSON.parse(d);
+        const f = localStorage.getItem('iptv_fav');
+        if (f) favorites = new Set(JSON.parse(f));
+        document.getElementById('stor').textContent = '● ' + channels.length;
+        toast('Loaded ' + channels.length);
+        renderCreatorList(); renderPlayerList();
+      } catch (e) { toast('Load failed'); }
+    }
+    function wipeStore() {
+      if (confirm('Wipe saved data?')) {
+        localStorage.removeItem('iptv_ch');
+        localStorage.removeItem('iptv_fav');
+        toast('Wiped');
+        document.getElementById('stor').textContent = '● Ready';
+      }
+    }
+    (function init() {
+      try {
+        const d = localStorage.getItem('iptv_ch');
+        if (d) { channels = JSON.parse(d); document.getElementById('stor').textContent = '● ' + channels.length; }
+        const f = localStorage.getItem('iptv_fav');
+        if (f) favorites = new Set(JSON.parse(f));
+      } catch (e) {}
+    })();
+
+    // ---- Plyr player ----
+    function ensurePlayer() {
+      if (plyr) return plyr;
+      if (typeof Plyr === 'undefined') return null;
+      try {
+        plyr = new Plyr('#player', {
+          controls: ['play-large', 'play', 'progress', 'current-time', 'mute', 'volume', 'settings', 'pip', 'airplay', 'fullscreen'],
+          settings: ['quality', 'speed'],
+          fullscreen: { enabled: true, fallback: true, iosNative: true },
+          ratio: '16:9',
+          autoplay: false,
+          invertTime: false
+        });
+      } catch (e) {
+        console.warn('Plyr init failed', e);
+        plyr = null;
+      }
+      return plyr;
+    }
+
+    function playChannel(ch) {
+      if (!ch || !ch.url) return;
+      ensurePlayer();
+      currentId = ch.id;
+      currentIndex = channels.findIndex(c => c.id === ch.id);
+      document.getElementById('now').textContent = ch.name;
+      document.getElementById('pstatus').textContent = 'Loading…';
+
+      const video = document.getElementById('player');
+      if (hls) { try { hls.destroy(); } catch (e) {} hls = null; }
+
+      const url = ch.url;
+      const canHls = typeof Hls !== 'undefined' && Hls.isSupported && Hls.isSupported();
+
+      if (canHls && (url.includes('m3u8') || url.includes('type=m3u'))) {
+        hls = new Hls({ enableWorker: true, maxBufferLength: 60 });
+        hls.loadSource(url);
+        hls.attachMedia(video);
+        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+          document.getElementById('pstatus').textContent = 'Playing — tap ⛶ in the player for fullscreen';
+          video.play().catch(() => {});
+        });
+        hls.on(Hls.Events.ERROR, (_, data) => {
+          if (data.fatal) {
+            document.getElementById('pstatus').textContent = 'Failed (CORS / offline) — try another or VLC';
+            toast('Stream failed');
+          }
+        });
+      } else {
+        video.src = url;
+        video.play().catch(() => {
+          document.getElementById('pstatus').textContent = 'Cannot play this format in browser';
+        });
+        document.getElementById('pstatus').textContent = 'Playing';
+      }
+      renderPlayerList();
+      toast('▶ ' + ch.name);
+    }
+
+    function togglePlay() {
+      ensurePlayer();
+      if (plyr) {
+        if (plyr.paused) plyr.play();
+        else plyr.pause();
+      } else {
+        const v = document.getElementById('player');
+        if (v.paused) v.play().catch(() => {});
+        else v.pause();
+      }
+    }
+
+    function goFullscreen() {
+      ensurePlayer();
+      const v = document.getElementById('player');
+      const box = document.getElementById('player-box');
+
+      // 1) Plyr API (best – works with its UI)
+      if (plyr && typeof plyr.fullscreen === 'object') {
+        try {
+          plyr.fullscreen.toggle();
+          return;
+        } catch (e) {}
+      }
+
+      // 2) Exit if already fullscreen
+      if (document.fullscreenElement || document.webkitFullscreenElement) {
+        const exit = document.exitFullscreen || document.webkitExitFullscreen;
+        if (exit) { exit.call(document); return; }
+      }
+
+      // 3) Video element (Android / desktop)
+      try {
+        if (v.webkitEnterFullscreen) { v.webkitEnterFullscreen(); return; } // iOS
+        if (v.requestFullscreen) { v.requestFullscreen().catch(fallbackFs); return; }
+        if (v.webkitRequestFullscreen) { v.webkitRequestFullscreen(); return; }
+      } catch (e) {}
+
+      // 4) Container
+      try {
+        if (box.requestFullscreen) { box.requestFullscreen().catch(fallbackFs); return; }
+        if (box.webkitRequestFullscreen) { box.webkitRequestFullscreen(); return; }
+      } catch (e) {}
+
+      fallbackFs();
+    }
+
+    function fallbackFs() {
+      const box = document.getElementById('player-box');
+      box.classList.toggle('fs-css');
+      document.body.classList.toggle('fs-body');
+      toast(box.classList.contains('fs-css') ? 'Expanded — tap Full again to exit' : 'Exited fullscreen');
+    }
+
+    function nextChannel() {
+      if (!channels.length) return;
+      let i = currentIndex < 0 ? 0 : (currentIndex + 1) % channels.length;
+      playChannel(channels[i]);
+    }
+    function prevChannel() {
+      if (!channels.length) return;
+      let i = currentIndex <= 0 ? channels.length - 1 : currentIndex - 1;
+      playChannel(channels[i]);
+    }
+    function copyCurrentUrl() {
+      const ch = channels.find(c => c.id === currentId);
+      if (!ch) { toast('No channel playing'); return; }
+      navigator.clipboard.writeText(ch.url).then(() => toast('URL copied — open in VLC')).catch(() => toast('Copy failed'));
+    }
+    function toggleFavCurrent() {
+      if (!currentId) { toast('Play a channel first'); return; }
+      if (favorites.has(String(currentId))) favorites.delete(String(currentId));
+      else favorites.add(String(currentId));
+      saveStore();
+      renderPlayerList();
+      toast(favorites.has(String(currentId)) ? 'Added to favorites' : 'Removed from favorites');
+    }
+
+    function renderPlayerList() {
+      const list = document.getElementById('plist');
+      const q = (document.getElementById('psearch')?.value || '').toLowerCase();
+      const groups = [...new Set(channels.map(c => c.group || 'General'))].sort();
+      const chips = document.getElementById('pchips');
+      chips.innerHTML = '<span class="chip ' + (filterPG === 'All' ? 'on' : '') + '" onclick="filterPG=\'All\';renderPlayerList()">All</span>' +
+        '<span class="chip ' + (filterPG === '★' ? 'on' : '') + '" onclick="filterPG=\'★\';renderPlayerList()">★ Favs</span>' +
+        groups.slice(0, 12).map(g => '<span class="chip ' + (filterPG === g ? 'on' : '') + '" onclick="filterPG=\'' + esc(g) + '\';renderPlayerList()">' + esc(g) + '</span>').join('');
+
+      let rows = channels;
+      if (filterPG === '★') rows = rows.filter(c => favorites.has(String(c.id)));
+      else if (filterPG !== 'All') rows = rows.filter(c => (c.group || 'General') === filterPG);
+      if (q) rows = rows.filter(c => c.name.toLowerCase().includes(q) || (c.group || '').toLowerCase().includes(q));
+
+      document.getElementById('pcount').textContent = channels.length;
+      if (!rows.length) {
+        list.innerHTML = '<div class="empty">' + (channels.length ? 'No matches' : 'No channels yet') + '</div>';
+        return;
+      }
+      list.innerHTML = rows.map(c => {
+        const playing = c.id === currentId;
+        const fav = favorites.has(String(c.id));
+        return '<div class="citem ' + (playing ? 'playing' : '') + '" onclick="playById(\'' + c.id + '\')">' +
+          '<img class="clogo" src="' + (c.logo || FALLBACK_LOGO) + '" onerror="this.src=\'' + FALLBACK_LOGO + '\'">' +
+          '<div class="cinfo"><div class="cname">' + (playing ? '▶ ' : '') + esc(c.name) + '</div>' +
+          '<div class="cmeta">' + esc(c.group || 'General') + '</div></div>' +
+          '<div class="cacts">' +
+          '<button class="ibtn fav ' + (fav ? 'on' : '') + '" onclick="event.stopPropagation();togFav(\'' + c.id + '\')">' + (fav ? '★' : '☆') + '</button>' +
+          '<button class="ibtn play" onclick="event.stopPropagation();playById(\'' + c.id + '\')">▶</button>' +
+          '</div></div>';
+      }).join('');
+    }
+    function playById(id) {
+      const ch = channels.find(c => String(c.id) === String(id));
+      if (ch) playChannel(ch);
+    }
+    function togFav(id) {
+      const s = String(id);
+      if (favorites.has(s)) favorites.delete(s); else favorites.add(s);
+      saveStore(); renderPlayerList(); renderFavs();
+    }
+
+    // ---- Creator ----
+    function addChannel() {
+      let name = document.getElementById('ch-name').value.trim();
+      const url = document.getElementById('ch-url').value.trim();
+      let logo = document.getElementById('ch-logo').value.trim();
+      let group = document.getElementById('ch-group').value.trim() || 'General';
+      let tvgid = document.getElementById('ch-tvgid').value.trim();
+      if (name.startsWith('#EXTINF')) {
+        const p = parseExt(name);
+        if (p) { name = p.name; logo = logo || p.logo; group = p.group || group; tvgid = tvgid || p.tvgid; }
+      }
+      if (!name || !url) { toast('Name & URL required'); return; }
+      channels.push({ name, url, logo, group, tvgid, id: Date.now() + Math.random() });
+      clearForm(); saveStore(); renderCreatorList(); toast('Added');
+    }
+    function parseExt(line) {
+      const name = (line.match(/,(.+)$/) || [])[1]?.trim() || '';
+      const logo = (line.match(/tvg-logo="([^"]*)"/i) || [])[1] || '';
+      const group = (line.match(/group-title="([^"]*)"/i) || [])[1] || '';
+      const tvgid = (line.match(/tvg-id="([^"]*)"/i) || [])[1] || '';
+      return name ? { name, logo, group, tvgid } : null;
+    }
+    function clearForm() {
+      ['ch-name', 'ch-url', 'ch-logo', 'ch-tvgid'].forEach(id => document.getElementById(id).value = '');
+    }
+    function renderCreatorList() {
+      const list = document.getElementById('clist');
+      const q = (document.getElementById('csearch')?.value || '').toLowerCase();
+      const groups = [...new Set(channels.map(c => c.group || 'General'))].sort();
+      document.getElementById('glist').innerHTML = groups.map(g => '<option value="' + esc(g) + '">').join('');
+      document.getElementById('cchips').innerHTML = '<span class="chip ' + (filterG === 'All' ? 'on' : '') + '" onclick="filterG=\'All\';renderCreatorList()">All</span>' +
+        groups.map(g => '<span class="chip ' + (filterG === g ? 'on' : '') + '" onclick="filterG=\'' + esc(g) + '\';renderCreatorList()">' + esc(g) + '</span>').join('');
+
+      let rows = channels;
+      if (filterG !== 'All') rows = rows.filter(c => (c.group || 'General') === filterG);
+      if (q) rows = rows.filter(c => c.name.toLowerCase().includes(q));
+
+      document.getElementById('ccount').textContent = channels.length;
+      document.getElementById('gcount').textContent = groups.length;
+      if (!rows.length) { list.innerHTML = '<div class="empty">No channels</div>'; return; }
+      list.innerHTML = rows.map(c => {
+        const i = channels.findIndex(x => x.id === c.id);
+        return '<div class="citem">' +
+          '<img class="clogo" src="' + (c.logo || FALLBACK_LOGO) + '" onerror="this.src=\'' + FALLBACK_LOGO + '\'">' +
+          '<div class="cinfo"><div class="cname">' + esc(c.name) + '</div><div class="cmeta">' + esc(c.group || '') + '</div></div>' +
+          '<div class="cacts">' +
+          '<button class="ibtn play" onclick="go(\'player\');setTimeout(()=>playById(\'' + c.id + '\'),100)">▶</button>' +
+          '<button class="ibtn" onclick="moveCh(' + i + ',-1)">↑</button>' +
+          '<button class="ibtn" onclick="moveCh(' + i + ',1)">↓</button>' +
+          '<button class="ibtn del" onclick="delCh(' + i + ')">✕</button>' +
+          '</div></div>';
+      }).join('');
+    }
+    function moveCh(i, d) {
+      const j = i + d; if (j < 0 || j >= channels.length) return;
+      [channels[i], channels[j]] = [channels[j], channels[i]];
+      saveStore(); renderCreatorList();
+    }
+    function delCh(i) { channels.splice(i, 1); saveStore(); renderCreatorList(); toast('Removed'); }
+    function clearAll() {
+      if (!channels.length) return;
+      if (confirm('Clear all channels?')) { channels = []; saveStore(); renderCreatorList(); renderPlayerList(); toast('Cleared'); }
+    }
+    function buildM3U() {
+      let o = '#EXTM3U\n';
+      channels.forEach(c => {
+        let e = '#EXTINF:-1';
+        if (c.tvgid) e += ' tvg-id="' + c.tvgid + '"';
+        if (c.logo) e += ' tvg-logo="' + c.logo + '"';
+        if (c.group) e += ' group-title="' + c.group + '"';
+        o += e + ',' + c.name + '\n' + c.url + '\n';
+      });
+      return o;
+    }
+    function downloadM3U() {
+      if (!channels.length) { toast('No channels'); return; }
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([buildM3U()], { type: 'audio/x-mpegurl' }));
+      a.download = 'playlist.m3u'; a.click();
+      toast('Downloaded');
+    }
+    function downloadAs(type) {
+      if (!channels.length) { toast('No channels'); return; }
+      const content = type === 'json' ? JSON.stringify(channels, null, 2) : channels.map(c => c.name + '\n' + c.url).join('\n\n');
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([content], { type: type === 'json' ? 'application/json' : 'text/plain' }));
+      a.download = 'playlist.' + type; a.click();
+    }
+    function copyM3U() {
+      if (!channels.length) { toast('No channels'); return; }
+      navigator.clipboard.writeText(buildM3U()).then(() => toast('Copied')).catch(() => toast('Failed'));
+    }
+
+    // ---- Parser ----
+    function parseText(text) {
+      const lines = text.split(/\r?\n/);
+      const out = []; let cur = null;
+      for (let line of lines) {
+        line = line.trim();
+        if (!line || line.startsWith('#EXTM3U') || line.startsWith('#EXT-X')) continue;
+        if (line.startsWith('#EXTINF')) {
+          const p = parseExt(line);
+          cur = { name: p?.name || 'Unknown', logo: p?.logo || '', group: p?.group || 'General', tvgid: p?.tvgid || '', url: '' };
+        } else if (cur && (line.includes('://') || line.startsWith('http'))) {
+          cur.url = line; out.push(cur); cur = null;
+        }
+      }
+      return out;
+    }
+    function parseM3U() {
+      const t = document.getElementById('parse-in').value.trim();
+      if (!t) { toast('Paste M3U first'); return; }
+      parsed = parseText(t);
+      document.getElementById('parse-card').style.display = 'block';
+      document.getElementById('pfound').textContent = parsed.length;
+      document.getElementById('parsed-list').innerHTML = parsed.slice(0, 150).map(c =>
+        '<div class="citem"><img class="clogo" src="' + (c.logo || FALLBACK_LOGO) + '" onerror="this.src=\'' + FALLBACK_LOGO + '\'">' +
+        '<div class="cinfo"><div class="cname">' + esc(c.name) + '</div><div class="cmeta">' + esc(c.group) + '</div></div></div>'
+      ).join('') + (parsed.length > 150 ? '<div class="empty">…+' + (parsed.length - 150) + ' more</div>' : '');
+      toast('Found ' + parsed.length);
+    }
+    function importParsed() {
+      if (!parsed.length) { toast('Parse first'); return; }
+      channels = channels.concat(parsed.map(c => ({ ...c, id: Date.now() + Math.random() })));
+      saveStore(); go('creator'); toast('Imported ' + parsed.length);
+    }
+    async function loadURL() {
+      const url = document.getElementById('load-url').value.trim();
+      if (!url) { toast('Enter URL'); return; }
+      toast('Loading…');
+      try {
+        const r = await fetch(url);
+        const t = await r.text();
+        document.getElementById('parse-in').value = t;
+        parsed = parseText(t);
+        document.getElementById('parse-card').style.display = 'block';
+        document.getElementById('pfound').textContent = parsed.length;
+        toast('Loaded ' + parsed.length);
+      } catch (e) { toast('Load failed (CORS?)'); }
+    }
+    async function loadSample(url) {
+      toast('Loading free list…');
+      try {
+        const r = await fetch(url);
+        const list = parseText(await r.text()).slice(0, 400).map(c => ({ ...c, id: Date.now() + Math.random() }));
+        channels = channels.concat(list);
+        saveStore(); go('player'); toast('Loaded ' + list.length + ' — tap to play');
+      } catch (e) { toast('Failed to load'); }
+    }
+
+    // ---- Xtream ----
+    function genXtream() {
+      let host = document.getElementById('xt-host').value.trim().replace(/\/$/, '');
+      const u = document.getElementById('xt-user').value.trim();
+      const p = document.getElementById('xt-pass').value.trim();
+      if (!host || !u || !p) { toast('Fill all fields'); return; }
+      if (!host.startsWith('http')) host = 'http://' + host;
+      const box = document.getElementById('xt-out');
+      box.style.display = 'block';
+      box.textContent =
+        'LIVE (TS):\n' + host + '/get.php?username=' + encodeURIComponent(u) + '&password=' + encodeURIComponent(p) + '&type=m3u_plus&output=ts\n\n' +
+        'LIVE (M3U8):\n' + host + '/get.php?username=' + encodeURIComponent(u) + '&password=' + encodeURIComponent(p) + '&type=m3u_plus&output=m3u8\n\n' +
+        'EPG:\n' + host + '/xmltv.php?username=' + encodeURIComponent(u) + '&password=' + encodeURIComponent(p) + '\n\n' +
+        'API:\n' + host + '/player_api.php?username=' + encodeURIComponent(u) + '&password=' + encodeURIComponent(p);
+      toast('Generated');
+    }
+    function extractXt() {
+      try {
+        const u = new URL(document.getElementById('m3u-xt').value.trim());
+        const box = document.getElementById('m3u-xt-out');
+        box.style.display = 'block';
+        box.textContent = 'Host: ' + u.origin + '\nUsername: ' + (u.searchParams.get('username') || '') + '\nPassword: ' + (u.searchParams.get('password') || '');
+        toast('Extracted');
+      } catch (e) { toast('Invalid URL'); }
+    }
+    function copyBox(id) {
+      const el = document.getElementById(id);
+      if (!el.textContent) { toast('Nothing to copy'); return; }
+      navigator.clipboard.writeText(el.textContent).then(() => toast('Copied'));
+    }
+
+    // ---- MAC Portal ----
+    function buildMac() {
+      let host = document.getElementById('mac-host').value.trim().replace(/\/$/, '');
+      const mac = document.getElementById('mac-addr').value.trim();
+      const path = document.getElementById('mac-path').value;
+      if (!host) { toast('Enter host'); return; }
+      if (!host.startsWith('http')) host = 'http://' + host;
+      const portal = host + path;
+      const box = document.getElementById('mac-out');
+      box.style.display = 'block';
+      box.textContent =
+        'Portal URL:\n' + portal + '\n\n' +
+        (mac ? 'MAC:\n' + mac + '\n\n' : '') +
+        'Common patterns:\n' +
+        host + '/c/\n' +
+        host + '/stalker_portal/c/\n' +
+        host + '/portal.php\n\n' +
+        'Use these in MAG / Stalker / portal-based apps.\n' +
+        'This tool only builds URLs — it cannot scan remote portals from a browser.';
+      toast('Built');
+    }
+    function checkMac() {
+      const m = document.getElementById('mac-check').value.trim();
+      const ok = /^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$/.test(m);
+      document.getElementById('mac-check-out').innerHTML = ok
+        ? '<span style="color:var(--ok);font-weight:700;">✓ Valid MAC format</span>'
+        : '<span style="color:var(--danger);font-weight:700;">✗ Invalid — use XX:XX:XX:XX:XX:XX</span>';
+    }
+
+    // ---- Checker ----
+    async function checkOne() {
+      const url = document.getElementById('chk-url').value.trim();
+      if (!url) { toast('Enter URL'); return; }
+      const el = document.getElementById('chk-out');
+      el.innerHTML = '<span style="color:var(--warn)">Checking…</span>';
+      try {
+        const c = new AbortController();
+        setTimeout(() => c.abort(), 8000);
+        const r = await fetch(url, { method: 'HEAD', mode: 'cors', signal: c.signal });
+        el.innerHTML = r.ok
+          ? '<span style="color:var(--ok)">● Reachable (' + r.status + ')</span>'
+          : '<span style="color:var(--warn)">● HTTP ' + r.status + '</span>';
+      } catch (e) {
+        el.innerHTML = '<span style="color:var(--danger)">● Blocked / offline (CORS common)</span>';
+      }
+    }
+    async function checkMulti() {
+      const urls = document.getElementById('chk-multi').value.trim().split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+      if (!urls.length) { toast('Paste URLs'); return; }
+      const el = document.getElementById('chk-multi-out');
+      el.innerHTML = 'Checking ' + urls.length + '…';
+      let html = '';
+      for (const url of urls) {
+        let label = 'Failed', color = 'var(--danger)';
+        try {
+          const c = new AbortController();
+          setTimeout(() => c.abort(), 5000);
+          const r = await fetch(url, { method: 'HEAD', mode: 'cors', signal: c.signal });
+          if (r.ok) { label = 'OK ' + r.status; color = 'var(--ok)'; }
+          else { label = 'HTTP ' + r.status; color = 'var(--warn)'; }
+        } catch (e) {}
+        html += '<div style="margin:4px 0;font-size:0.82rem;"><span style="color:' + color + '">● ' + label + '</span> ' + esc(url.slice(0, 50)) + '</div>';
+      }
+      el.innerHTML = html;
+      toast('Done');
+    }
+
+    // ---- Tools ----
+    function cleanList() {
+      const before = channels.length;
+      const seen = new Set();
+      channels = channels.filter(c => c.url && c.name && !seen.has(c.url) && seen.add(c.url));
+      saveStore(); renderCreatorList(); renderPlayerList();
+      toast('Removed ' + (before - channels.length));
+    }
+    function bulkGroup() {
+      const g = document.getElementById('bulk-g').value.trim();
+      if (!g || !channels.length) { toast('Need group + channels'); return; }
+      channels.forEach(c => c.group = g);
+      saveStore(); renderCreatorList(); toast('All → ' + g);
+    }
+    function renderFavs() {
+      const list = document.getElementById('fav-list');
+      const favs = channels.filter(c => favorites.has(String(c.id)));
+      if (!favs.length) { list.innerHTML = '<div class="empty">No favorites yet</div>'; return; }
+      list.innerHTML = favs.map(c =>
+        '<div class="citem" onclick="go(\'player\');setTimeout(()=>playById(\'' + c.id + '\'),100)">' +
+        '<img class="clogo" src="' + (c.logo || FALLBACK_LOGO) + '" onerror="this.src=\'' + FALLBACK_LOGO + '\'">' +
+        '<div class="cinfo"><div class="cname">★ ' + esc(c.name) + '</div><div class="cmeta">' + esc(c.group || '') + '</div></div></div>'
+      ).join('');
+    }
+    function playFavorites() {
+      const favs = channels.filter(c => favorites.has(String(c.id)));
+      if (!favs.length) { toast('No favorites'); return; }
+      go('player');
+      setTimeout(() => playChannel(favs[0]), 150);
+    }
+
+    function esc(s) {
+      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    document.getElementById('ch-url')?.addEventListener('keydown', e => { if (e.key === 'Enter') addChannel(); });
+  </script>
+</body>
+</html>
